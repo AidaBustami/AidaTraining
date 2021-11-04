@@ -3,66 +3,70 @@ import com.example.demo.test.Models.Machine;
 import com.example.demo.test.Services.JobService;
 import com.example.demo.test.Services.MachineService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 import java.util.Optional;
+
 @RestController
-@RequestMapping("/Machine")
-public class MachineController
-{
+@RequestMapping("/Machine/")
+public class MachineController {
     @Autowired
     MachineService machineService;
     @Autowired
-    JobService jobService;
-    @Autowired
-    ObjectMapper mapper;
 
-    public MachineController()
-    {
+    JobService jobService;
+
+    public MachineController() {
     }
-    @PostMapping("/create")
-    public Machine createMachine(@RequestBody Machine machine1)
-    {
-        if (machineService.findMachine(machine1.getMachineId()).isPresent())
-        {//  his machine id is already exit with this id.
-            return null ;
-        }
-        else
-        {
-            machineService.save(machine1);
-            return machine1 ;
-        }
+
+    @PostMapping()
+    public Machine createMachine(@RequestBody Machine machine) {
+        Machine result = machineService.save(machine);
+        return result;
     }
-    @PutMapping("/update")
-    public Machine updateMachine(@RequestBody Machine machine1)
-    {
-        if (machineService.findMachine(machine1.getMachineId()).isPresent())
-        {
-            machineService.save(machine1);
-            return  machine1 ;
-        }
-        else
-        {
+
+    @PutMapping("{machineId}")
+    public Machine updateMachine(@PathVariable Long machineId, @RequestBody Machine machine) {
+        if (machineService.findMachine(machineId).isPresent()) {
+            machine.setMachineId(machineId);
+            Machine result = machineService.save(machine);
+            return result;
+        } else {
             // this means machine does not exist ,so we can not update
             return null;
         }
     }
-    @DeleteMapping("/delete_a_machine")
-    public String deleteMachine(@RequestBody Machine machine)
-    {
-        Optional<Machine> optionalMachine = machineService.findMachine(machine.getMachineId());
-        if (optionalMachine.isPresent())
-        {
+
+    @GetMapping("{machineId}")
+    public Machine getMachineById(@PathVariable Long machineId) {
+        Optional<Machine> machine = machineService.findById(machineId);
+        if (machine.isPresent())
+            return machine.get();
+        else
+            return null;
+    }
+
+    @GetMapping("")
+    public List<Machine> getAllMachines() {
+        return machineService.findAll();
+    }
+
+    @DeleteMapping("{machineId}")
+    public String deleteMachine(@PathVariable Long machineId) {
+        Optional<Machine> optionalMachine = machineService.findMachine(machineId);
+        if (optionalMachine.isPresent()) {
             Machine tempMachine = optionalMachine.get();
-            jobService.deleteTasks(tempMachine);
-            machineService.delete(tempMachine);
-            ObjectNode objectNode = mapper.createObjectNode();
-            objectNode.put("id", tempMachine.getMachineId());
-            objectNode.put("name", tempMachine.getName());
-            objectNode.put("ip", tempMachine.getIp());
-            objectNode.put("location", tempMachine.getLocation());
-            return objectNode.toString() ;
+            ObjectMapper mapper = new ObjectMapper();
+            try {
+                String json = mapper.writeValueAsString(tempMachine);
+                // if we  use cascade_remove  we don't need to call jobService.deleteTasks.
+                jobService.deleteTasks(tempMachine);
+                machineService.delete(tempMachine.getMachineId());
+                return "Machine " + json + "is deleted ";
+            } catch (Exception e) {
+                return e + "";
+            }
         }
         return "machine does not exist";
     }
