@@ -1,6 +1,7 @@
 package com.example.demo.test.Services;
 import com.example.demo.test.Models.Task;
 import com.example.demo.test.Models.Thread;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,8 +18,7 @@ public class WorkerService {
     ThreadService threadservice;
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
-    @Autowired
-    ObjectMapper mapper;
+
     public WorkerService()
     {
     }
@@ -49,16 +49,18 @@ public class WorkerService {
                     System.out.print(e);
                 }
                 currentTask.setStatus(2);
-                taskservice.save(currentTask);
                 currentTask.getThread().setBusy(false);
-                currentTask.getThread().setTask(null);
                 threadservice.save(currentTask.getThread());
-                ObjectNode objectNode = mapper.createObjectNode();
-                objectNode.put("id", currentTask.getTaskId());
-                objectNode.put("name", currentTask.getName());
-                objectNode.put("status", currentTask.getStatus());
-                objectNode.put("thread", currentTask.getThread().getThread_id());
-                kafkaTemplate.send("topic", objectNode.toString());
+                currentTask.setThread(null);
+                taskservice.save(currentTask);
+                ObjectMapper mapper = new ObjectMapper();
+                try {
+                   String json = mapper.writeValueAsString(currentTask);
+                    kafkaTemplate.send("topic", json);
+                    System.out.println(json);
+               } catch (JsonProcessingException e) {
+                    e.printStackTrace();
+                }
                 return "task is assigned to a thread";
             }
             else
